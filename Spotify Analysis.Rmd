@@ -1,0 +1,277 @@
+---
+title: "Spotify Analysis"
+author: "Anastasia Trofimenco"
+date: "02 02 2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+This is an attempt to conduct some analysis on Spotify data retireved from my personal account via the following service: http://organizeyourmusic.playlistmachinery.com. 
+
+```{r}
+library(ggplot2)
+library(ggdendro)
+library(kableExtra)
+library(lemon)
+library(RColorBrewer)
+library(grid)
+library(gridExtra)
+library(pheatmap)
+library(psych)
+library(mclust)
+library(dplyr)
+```
+
+```{r setup, include=FALSE}
+data <- read.csv(file = 'music.csv', header = TRUE, sep = ";")
+head(data)
+```
+
+Variables:
+
+ * Genre - the genre of the track
+ * Year - the release year of the recording. Note that due to vagaries of releases, re-releases, re-issues and general madness, sometimes the release years are not what you'd expect.
+ * Added - the earliest date you added the track to your collection.
+ * Beats Per Minute (BPM) - The tempo of the song.
+ * Energy - The energy of a song - the higher the value, the more energtic song
+ * Danceability - The higher the value, the easier it is to dance to this song.
+ * Loudness (dB) - The higher the value, the louder the song.
+ * Liveness - The higher the value, the more likely the song is a live recording.
+ * Valence - The higher the value, the more positive mood for the song.
+ * Length - The duration of the song.
+ * Acousticness - The higher the value the more acoustic the song is.
+ * Speechiness - The higher the value the more spoken word the song contains.
+ * Popularity - The higher the value the more popular the song is.
+
+
+```{r}
+#Drop duplicates
+data <- data %>% distinct()
+max_loud <- max(data$dB)
+data$dB <- max_loud - data$dB
+```
+
+***
+
+```{r}
+year_table <- data.frame(table(data['year']))
+ggplot(year_table, aes(x = year_table$Var1, y = year_table$Freq)) + 
+          geom_bar(stat = "identity", col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Year", y = "Counts", title = "# of Songs by Year of Release") +
+          theme_bw() +
+          theme(axis.text.x=element_text(angle=90,hjust=1))
+```
+ 
+```{r}
+g2 <- ggplot(data, aes(x = data$bpm)) + 
+          geom_histogram(binwidth = 10, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "BPM", y = "Frequency", title = "# of Songs by BPM") +
+          theme_bw()
+
+g3 <- ggplot(data, aes(x = data$nrgy)) + 
+          geom_histogram(binwidth = 5, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Energy", y = "Frequency", title = "# of Songs by Energy") +
+          theme_bw()
+
+g4 <- ggplot(data, aes(x = data$dnce)) + 
+          geom_histogram(binwidth = 5, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Danceability", y = "Frequency", title = "# of Songs by Danceability") +
+          theme_bw()
+
+g5 <- ggplot(data, aes(x = data$dB)) + 
+          geom_histogram(binwidth = 1, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Loudness", y = "Frequency", title = "# of Songs by Loudness") +
+          theme_bw()
+
+grid.arrange(g2, g3, g4, g5, nrow = 2)
+```
+ 
+```{r}
+g6 <- ggplot(data, aes(x = data$live)) + 
+          geom_histogram(binwidth = 5, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Liveness", y = "Frequency", title = "# of Songs by Liveness") +
+          theme_bw()
+
+g7 <- ggplot(data, aes(x = data$val)) + 
+          geom_histogram(binwidth = 5, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Valence", y = "Frequency", title = "# of Songs by Valence") +
+          theme_bw()
+
+g8 <- ggplot(data, aes(x = data$dur)) + 
+          geom_histogram(binwidth = 20, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Length", y = "Frequency", title = "# of Songs by Length") +
+          theme_bw()
+
+g9 <- ggplot(data, aes(x = data$acous)) + 
+          geom_histogram(binwidth = 5, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Acousticness", y = "Frequency", title = "# of Songs by Acousticness") +
+          theme_bw()
+
+grid.arrange(g6, g7, g8, g9, nrow = 2)
+```
+ 
+```{r}
+g10 <- ggplot(data, aes(x = data$spch)) + 
+          geom_histogram(binwidth = 5, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Speechiness", y = "Frequency", title = "# of Songs by Speechiness") +
+          theme_bw()
+
+g11 <- ggplot(data, aes(x = data$pop)) + 
+          geom_histogram(binwidth = 5, col = "gray27", fill = "lightpink", alpha = 0.7) +
+          labs(x = "Popularity", y = "Frequency", title = "# of Songs by Popularity") +
+          theme_bw()
+
+grid.arrange(g10, g11, nrow = 1, ncol = 2)
+```
+ 
+ ***
+  
+```{r}
+variables <- c('bpm', 'nrgy', 'dnce', 'dB', 'live', 'val', 'dur', 'acous', 'spch', 'pop')
+newdata <- data[variables]
+cor <- cor(newdata)
+pheatmap(cor, color = colorRampPalette(c("navy", "white", "maroon"))(50), display_numbers = T, main = "Correlation Heatmap", treeheight_row = 0, treeheight_col = 0, angle_col = "0")
+```
+
+The strongest positive correlation can be observed between **Acousticness** and **Loudness** (0.57) as well as between **Danceability** and **Valence** (0.56). The strongest negative correlation can be seen between **Loudness** and **Energy** (-0.77) as well as by **Acousticness** and **Energy** (-0.72).
+
+ ***
+ 
+## Clustering
+
+**Hierarchical Clustering**
+
+```{r}
+newdata_scaled <- scale(newdata)
+dist <- dist(newdata_scaled) # distance matrix
+hc <- hclust(dist, "complete")
+
+index <- seq(1, length(hc$height), by = 1)   
+df <- as.data.frame(cbind(index, hc$height))
+
+ggplot(data = df, aes(x = df$index, y = rev(df$V2))) + geom_point(shape = 21, fill = 'lightblue', colour = 'gray27', alpha = 0.8, size = 2) + labs(title = 'Scree Plot', x = 'Index', y = 'Height') + theme_bw()
+```
+
+Based on hierarchical clustering, the appropriate number of clusters is 3 or 5.
+
+**K-Means Clustering**
+
+```{r}
+plot.wgss = function(mydata, maxc) {
+  wss = numeric(maxc)
+  for (i in 1:maxc) 
+    wss[i] = kmeans(mydata,centers=i, nstart = 10)$tot.withinss 
+  index_wss <- seq(1, maxc, by = 1)
+  df_wss <- as.data.frame(cbind(index_wss, wss))
+  ggplot(data = df_wss, aes(x = df_wss[, 1], y = df_wss[, 2])) + labs(title = "WGSS Scree Plot", x = "Number of Clusters", y = "Within groups sum of squares") + geom_pointline(shape = 21, fill = 'lightblue', colour = 'gray27', alpha = 0.8, size = 2) + theme_bw()
+}
+
+# You can set the maximum number of groups equal to 20: maxc = 20 
+plot.wgss(newdata, 20)
+```
+
+WGSS function suggests 5 clusters.
+
+```{r}
+km <- kmeans(newdata, centers = 3, nstart = 1000) # Applying kmeans for k=4 clusters
+freq_table <- as.data.frame(table(km$cluster))
+colnames(freq_table) <- c("Cluster", "# of Songs")
+
+kable(freq_table, align = 'c', caption = 'Number of Songs per Cluster') %>% 
+  kable_styling(latex_options = c('striped', 'hold_position'))
+```
+
+**Model-Based Clustering**
+
+```{r}
+mc <- Mclust(newdata_scaled)
+table(mc$classification)
+```
+
+Model-Based Clustering recommends to use 8 clusters. However, to my mind, it is too many, so I will try to run this method with 3 clusters and then use the results for visualization. 
+
+```{r}
+mc <- Mclust(newdata_scaled, G = 3)
+table(mc$classification)
+```
+
+***
+
+## PCA
+
+```{r}
+pc <- princomp(newdata, cor = T)
+summary(pc, loadings = T)
+```
+
+3 PCs explain **57%** of variation in data.
+
+Interpretation of PCs:
+ 
+ * PC1 corresponds to inbalance between **drive** of the song (energy, danceability and positive mood) and **arrangement** of the song (loudness, duration and acousticness);
+ * PC2 corresponds to inbalance between **energy** of the song (tempo, energy, liveness and duration) and *danceability* (danceability and positive mood);
+ * PC3 correspongs to popularity + lyrics
+ 
+```{r}
+ggplot(data = as.data.frame(pc$scores), aes(x = pc$scores[, 1], y = pc$scores[, 2], fill = factor(mc$classification))) + 
+        geom_point(shape = 21, colour = 'gray27', alpha = 0.8, size = 2) + 
+        labs(title = 'PCA: Comp 1 vs Comp 2', x = 'Comp 1', y = 'Comp 2') + 
+        scale_fill_manual(values = c("1" = "navy", "2" = "lightpink", "3" = "lightgreen", "4" = "gold", "5" = "darkviolet", "6" = "coral", "7" = "bisque", "8" = "red"), name = "Cluster") + 
+        theme_bw()
+
+ggplot(data = as.data.frame(pc$scores), aes(x = pc$scores[, 1], y = pc$scores[, 3], fill = factor(mc$classification))) + 
+        geom_point(shape = 21, colour = 'gray27', alpha = 0.8, size = 2) + 
+        labs(title = 'PCA: Comp 1 vs Comp 3', x = 'Comp 1', y = 'Comp 3') + 
+        scale_fill_manual(values = c("1" = "navy", "2" = "lightpink", "3" = "lightgreen", "4" = "gold", "5" = "darkviolet", "6" = "coral", "7" = "bisque", "8" = "red"), name = "Cluster") + 
+        theme_bw()
+
+ggplot(data = as.data.frame(pc$scores), aes(x = pc$scores[, 2], y = pc$scores[, 3], fill = factor(mc$classification))) + 
+        geom_point(shape = 21, colour = 'gray27', alpha = 0.8, size = 2) + 
+        labs(title = 'PCA: Comp 2 vs Comp 3', x = 'Comp 2', y = 'Comp 3') +
+        scale_fill_manual(values = c("1" = "navy", "2" = "lightpink", "3" = "lightgreen", "4" = "gold", "5" = "darkviolet", "6" = "coral", "7" = "bisque", "8" = "red"), name = "Cluster") + 
+        theme_bw()
+```
+ 
+ According to the visualizations above, the songs belonging to **Cluster 1** are described with a big inbalance between **drive** and **arrangement** of the song specifically having low level of energy and high figures in terms of loudness and duration. Same songs have low values in terms of popularity and amount of lyrics. The PC2 does not really describe Cluster **1** - we can see the points visualizing the songs of this cluster all over the axis.   
+ 
+ As for **Cluster 2**, the songs belonging to it demonstrate a high inbalance between **drive** and **arrangement** of the song having high level of energy and low figures in terms of loudness and duration.
+The PC2 does not really describe Cluster **2** as well - we can see the points visualizing the songs of this cluster all over the axis. The songs have very high values in terms of popularity and lyrics.
+
+The songs belonging to  **Cluster 3** show the same figures for PC1 as **Cluster 2**. However, there is not significant inbalance between **energy** and **danceability** which is represented by PC2.  Same songs have low values in terms of popularity and amount of lyrics.
+ 
+```{r}
+cluster_table <- cbind.data.frame(data$title, mc$classification)
+colnames(cluster_table) <- c("Title", "Cluster")
+
+kable(head(cluster_table), align = 'c', caption = 'Clustered Songs') %>% 
+  kable_styling(latex_options = c('striped', 'hold_position'))
+```
+
+***
+
+Let's see how the songs have been distributed between clusters.
+
+**Cluster 1**
+```{r}
+cluster_1 <- cluster_table %>% filter(Cluster == 1)
+cluster_1$Title
+```
+
+***
+
+**Cluster 2**
+```{r}
+cluster_2 <- cluster_table %>% filter(Cluster == 2)
+cluster_2$Title
+```
+
+**Cluster 1**
+```{r}
+cluster_3 <- cluster_table %>% filter(Cluster == 3)
+cluster_3$Title
+```
+
+
+
+
